@@ -44,6 +44,11 @@ describe("resolveModelArg", () => {
     expect(resolveModelArg("   ")).toBeNull();
   });
 
+  it("keeps GLM on the provider-default model", () => {
+    expect(resolveModelArg("glm")).toBeNull();
+    expect(resolveModelArg("  GLM  ")).toBeNull();
+  });
+
   it("passes standard models through unchanged", () => {
     expect(resolveModelArg("opus")).toBe("opus");
   });
@@ -67,5 +72,12 @@ describe("buildChildEnv", () => {
 
   it("leaves the base URL unset for default models", () => {
     expect(buildChildEnv({}, "opus", "").ANTHROPIC_BASE_URL).toBeUndefined();
+  });
+
+  it("preserves the GLM endpoint and timeout", () => {
+    const env = buildChildEnv({}, "  GLM  ", "token");
+
+    expect(env.ANTHROPIC_BASE_URL).toBe("https://api.z.ai/api/anthropic");
+    expect(env.API_TIMEOUT_MS).toBe("3000000");
   });
 });
