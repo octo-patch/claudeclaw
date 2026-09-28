@@ -98,15 +98,36 @@ describe("buildChildEnv", () => {
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
   });
 
-  it("preserves an explicitly configured endpoint for full model IDs", () => {
+  it("preserves endpoint-bound credentials for exact full model IDs", () => {
     const env = buildChildEnv(
-      { ANTHROPIC_BASE_URL: "https://gateway.example/anthropic" },
+      {
+        ANTHROPIC_BASE_URL: "https://gateway.example/anthropic",
+        ANTHROPIC_AUTH_TOKEN: "your-gateway-token",
+        ANTHROPIC_API_KEY: "your-gateway-key",
+      },
       "MiniMax-M2.7",
-      "your-gateway-token",
+      "",
     );
 
     expect(env.ANTHROPIC_BASE_URL).toBe("https://gateway.example/anthropic");
     expect(env.ANTHROPIC_AUTH_TOKEN).toBe("your-gateway-token");
+    expect(env.ANTHROPIC_API_KEY).toBe("your-gateway-key");
+  });
+
+  it("lets regional aliases override inherited provider routing", () => {
+    const env = buildChildEnv(
+      {
+        ANTHROPIC_BASE_URL: "https://api.minimax.io/anthropic",
+        ANTHROPIC_AUTH_TOKEN: "your-global-token",
+        ANTHROPIC_API_KEY: "your-global-key",
+      },
+      "minimax-m3-cn",
+      "your-cn-token",
+    );
+
+    expect(env.ANTHROPIC_BASE_URL).toBe("https://api.minimaxi.com/anthropic");
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBe("your-cn-token");
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
   });
 
   it("leaves the base URL unset for default models", () => {

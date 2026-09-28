@@ -335,6 +335,7 @@ const MINIMAX_MODEL_IDS: Record<string, string> = {
   "minimax-m3": "MiniMax-M3",
   "minimax-m2.7": "MiniMax-M2.7",
 };
+const MINIMAX_CANONICAL_MODEL_IDS = new Set(Object.values(MINIMAX_MODEL_IDS));
 
 /**
  * Resolve the MiniMax provider preset for a configured `model` string.
@@ -377,18 +378,22 @@ export function buildChildEnv(baseEnv: Record<string, string>, model: string, ap
   const normalizedModel = model.trim().toLowerCase();
   const apiToken = api.trim();
   const minimax = resolveMinimaxModel(model);
-  const usesProviderPreset = normalizedModel === "glm" || minimax !== null;
+  const hasExplicitBaseUrl = Boolean(childEnv.ANTHROPIC_BASE_URL?.trim());
+  const preservesCustomMinimaxEndpoint = Boolean(
+    minimax && hasExplicitBaseUrl && MINIMAX_CANONICAL_MODEL_IDS.has(model.trim()),
+  );
+  const isolatesProviderCredentials = Boolean(
+    normalizedModel === "glm" || (minimax && (!preservesCustomMinimaxEndpoint || apiToken)),
+  );
 
-  if (usesProviderPreset) {
+  if (isolatesProviderCredentials) {
     delete childEnv.ANTHROPIC_AUTH_TOKEN;
     delete childEnv.ANTHROPIC_API_KEY;
     if (apiToken) childEnv.ANTHROPIC_AUTH_TOKEN = apiToken;
   }
 
-  if (minimax) {
-    if (!childEnv.ANTHROPIC_BASE_URL?.trim()) {
-      childEnv.ANTHROPIC_BASE_URL = minimax.baseUrl;
-    }
+  if (minimax && !preservesCustomMinimaxEndpoint) {
+    childEnv.ANTHROPIC_BASE_URL = minimax.baseUrl;
   }
 
   if (normalizedModel === "glm") {
