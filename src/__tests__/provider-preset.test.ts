@@ -70,14 +70,72 @@ describe("buildChildEnv", () => {
     );
   });
 
+  it("does not forward inherited Anthropic credentials to MiniMax", () => {
+    const env = buildChildEnv(
+      {
+        ANTHROPIC_AUTH_TOKEN: "your-inherited-token",
+        ANTHROPIC_API_KEY: "your-inherited-key",
+      },
+      "minimax",
+      "",
+    );
+
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
+  it("uses only the configured token for MiniMax", () => {
+    const env = buildChildEnv(
+      {
+        ANTHROPIC_AUTH_TOKEN: "your-inherited-token",
+        ANTHROPIC_API_KEY: "your-inherited-key",
+      },
+      "minimax",
+      "your-minimax-token",
+    );
+
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBe("your-minimax-token");
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
+  it("preserves an explicitly configured endpoint for full model IDs", () => {
+    const env = buildChildEnv(
+      { ANTHROPIC_BASE_URL: "https://gateway.example/anthropic" },
+      "MiniMax-M2.7",
+      "your-gateway-token",
+    );
+
+    expect(env.ANTHROPIC_BASE_URL).toBe("https://gateway.example/anthropic");
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBe("your-gateway-token");
+  });
+
   it("leaves the base URL unset for default models", () => {
     expect(buildChildEnv({}, "opus", "").ANTHROPIC_BASE_URL).toBeUndefined();
   });
 
+  it("does not apply a third-party token to default Anthropic models", () => {
+    const env = buildChildEnv(
+      { ANTHROPIC_AUTH_TOKEN: "your-anthropic-token" },
+      "opus",
+      "your-stale-provider-token",
+    );
+
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBe("your-anthropic-token");
+  });
+
   it("preserves the GLM endpoint and timeout", () => {
-    const env = buildChildEnv({}, "  GLM  ", "token");
+    const env = buildChildEnv(
+      {
+        ANTHROPIC_AUTH_TOKEN: "your-inherited-token",
+        ANTHROPIC_API_KEY: "your-inherited-key",
+      },
+      "  GLM  ",
+      "your-glm-token",
+    );
 
     expect(env.ANTHROPIC_BASE_URL).toBe("https://api.z.ai/api/anthropic");
     expect(env.API_TIMEOUT_MS).toBe("3000000");
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBe("your-glm-token");
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
   });
 });

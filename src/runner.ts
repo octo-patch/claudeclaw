@@ -375,17 +375,25 @@ export function resolveModelArg(model: string): string | null {
 export function buildChildEnv(baseEnv: Record<string, string>, model: string, api: string): Record<string, string> {
   const childEnv: Record<string, string> = { ...baseEnv };
   const normalizedModel = model.trim().toLowerCase();
+  const apiToken = api.trim();
+  const minimax = resolveMinimaxModel(model);
+  const usesProviderPreset = normalizedModel === "glm" || minimax !== null;
 
-  if (api.trim()) childEnv.ANTHROPIC_AUTH_TOKEN = api.trim();
+  if (usesProviderPreset) {
+    delete childEnv.ANTHROPIC_AUTH_TOKEN;
+    delete childEnv.ANTHROPIC_API_KEY;
+    if (apiToken) childEnv.ANTHROPIC_AUTH_TOKEN = apiToken;
+  }
+
+  if (minimax) {
+    if (!childEnv.ANTHROPIC_BASE_URL?.trim()) {
+      childEnv.ANTHROPIC_BASE_URL = minimax.baseUrl;
+    }
+  }
 
   if (normalizedModel === "glm") {
     childEnv.ANTHROPIC_BASE_URL = "https://api.z.ai/api/anthropic";
     childEnv.API_TIMEOUT_MS = "3000000";
-  }
-
-  const minimax = resolveMinimaxModel(model);
-  if (minimax) {
-    childEnv.ANTHROPIC_BASE_URL = minimax.baseUrl;
   }
 
   return childEnv;
