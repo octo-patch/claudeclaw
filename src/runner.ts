@@ -359,6 +359,26 @@ export function resolveMinimaxModel(model: string): { baseUrl: string; modelId: 
   return modelId ? { baseUrl, modelId } : null;
 }
 
+function resolveProviderFamily(model: string): "anthropic" | "glm" | "minimax" {
+  if (model.trim().toLowerCase() === "glm") return "glm";
+  if (resolveMinimaxModel(model)) return "minimax";
+  return "anthropic";
+}
+
+/**
+ * Pair an effective model with the configured primary credential only when the
+ * model stays within the same provider family. Overrides and agentic routes do
+ * not carry provider-specific credentials, so cross-provider switches fail
+ * closed instead of forwarding the configured provider token.
+ */
+export function resolvePrimaryModelConfig(
+  configured: ModelConfig,
+  effectiveModel: string,
+): ModelConfig {
+  const sameProvider = resolveProviderFamily(configured.model) === resolveProviderFamily(effectiveModel);
+  return { model: effectiveModel, api: sameProvider ? configured.api : "" };
+}
+
 /**
  * Resolve the value passed to the Claude CLI `--model` flag, or null when no
  * flag should be added. GLM uses its provider default (no flag); MiniMax presets
@@ -1132,11 +1152,11 @@ async function execClaude(
   let routingReasoning = "";
 
   if (modelOverride) {
-    primaryConfig = { model: modelOverride, api };
+    primaryConfig = resolvePrimaryModelConfig({ model, api }, modelOverride);
     console.log(`[${new Date().toLocaleTimeString()}] Job model override: ${modelOverride}`);
   } else if (agentic.enabled) {
     const routing = selectModel(prompt, agentic.modes, agentic.defaultMode);
-    primaryConfig = { model: routing.model, api };
+    primaryConfig = resolvePrimaryModelConfig({ model, api }, routing.model);
     taskType = routing.taskType;
     routingReasoning = routing.reasoning;
     console.log(

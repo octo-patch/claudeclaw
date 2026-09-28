@@ -1,5 +1,10 @@
 import { describe, it, expect } from "bun:test";
-import { resolveModelArg, resolveMinimaxModel, buildChildEnv } from "../runner";
+import {
+  resolveModelArg,
+  resolveMinimaxModel,
+  resolvePrimaryModelConfig,
+  buildChildEnv,
+} from "../runner";
 
 describe("resolveMinimaxModel", () => {
   it("maps the bare minimax alias to the latest model on the global endpoint", () => {
@@ -51,6 +56,39 @@ describe("resolveModelArg", () => {
 
   it("passes standard models through unchanged", () => {
     expect(resolveModelArg("opus")).toBe("opus");
+  });
+});
+
+describe("resolvePrimaryModelConfig", () => {
+  it("drops a GLM token when an override or agentic route selects MiniMax", () => {
+    const configured = { model: "glm", api: "your-glm-token" };
+
+    expect(resolvePrimaryModelConfig(configured, "minimax")).toEqual({
+      model: "minimax",
+      api: "",
+    });
+    expect(resolvePrimaryModelConfig(configured, "minimax-m3-cn")).toEqual({
+      model: "minimax-m3-cn",
+      api: "",
+    });
+  });
+
+  it("drops a MiniMax token when an override or agentic route selects GLM", () => {
+    expect(
+      resolvePrimaryModelConfig(
+        { model: "minimax-m3", api: "your-minimax-token" },
+        "glm",
+      ),
+    ).toEqual({ model: "glm", api: "" });
+  });
+
+  it("keeps the configured token for aliases in the same provider family", () => {
+    expect(
+      resolvePrimaryModelConfig(
+        { model: "minimax", api: "your-minimax-token" },
+        "MiniMax-M2.7-cn",
+      ),
+    ).toEqual({ model: "MiniMax-M2.7-cn", api: "your-minimax-token" });
   });
 });
 
